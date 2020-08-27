@@ -6,6 +6,10 @@ const prefix = '-';
 
 const fs = require('fs');
 
+const ytdl = require("ytdl-core");
+
+const { Server } = require('http');
+
 client.commands = new Discord.Collection();
 
 const commandFiles = fs.readdirSync('./commands/').filter(file => file.endsWith('.js'));
@@ -31,6 +35,51 @@ client.on('message' , message =>{
         client.commands.get('ping').execute(message, args);
     } else if (command == 'youtube'){
         client.commands.get('youtube').execute(message, args);
+    }
+
+    /*Phần bot nhạc */
+
+    switch (args[0]) {
+        case 'play':
+
+            function play(connection, message){
+                var server = servers[message.guild.id];
+
+                server.dispatcher = connection.playStream(ytdl(server.queue[0], {filter: "audioonly"}));
+
+                server.queue.shift();
+
+                server.dispatcher.on("end", function(){
+                    if(server.queue[0]){
+                        play(connection, message);
+                    }else {
+                        connection.disconnect();
+                    }
+                });
+            }
+
+            if(!args[1]){
+                message.channel.send("Bạn cần cung cấp link cho bot!");
+                return;
+            }
+
+            if(!message.member.voiceChannel){
+                message.channel.send("Bạn phải ở trong voice room để play bot!");
+                return;
+            }
+            
+            if(!servers[message.guild.id]) servers[message.guild.id] = {
+                queue: []
+            }
+
+            var server = servers[message.guild.id];
+
+            server.queue.push(args[1]);
+
+            if(!message.guild.voiceConnection) message.member.voiceChannel.join().then(function(connection){
+                play(connection, message);
+            })
+        break;
     }
 });
 
